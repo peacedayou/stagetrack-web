@@ -1,0 +1,137 @@
+@page "/entreprises"
+@inject IStageTrackClient Client
+
+<PageTitle>Entreprises · StageTrack</PageTitle>
+
+<h1>Entreprises</h1>
+
+@if (_erreur is not null)
+{
+    <p class="erreur" role="alert" data-test="erreur">@_erreur</p>
+}
+
+<EditForm Model="_formulaire" OnValidSubmit="CreerAsync" FormName="entreprise" class="formulaire">
+    <DataAnnotationsValidator />
+    <label>
+        Nom
+        <InputText @bind-Value="_formulaire.Nom" data-test="nom" />
+        <ValidationMessage For="() => _formulaire.Nom" />
+    </label>
+    <label>
+        Ville
+        <InputText @bind-Value="_formulaire.Ville" />
+        <ValidationMessage For="() => _formulaire.Ville" />
+    </label>
+    <label>
+        Site web
+        <InputText @bind-Value="_formulaire.SiteWeb" placeholder="https://" data-test="site" />
+        <ValidationMessage For="() => _formulaire.SiteWeb" />
+    </label>
+    <button type="submit" disabled="@_envoi" data-test="ajouter">Ajouter l'entreprise</button>
+</EditForm>
+
+@if (_entreprises is null)
+{
+    <p>Chargement…</p>
+}
+else if (_entreprises.Count == 0)
+{
+    <p class="vide">Aucune entreprise. Ajoute la première avec le formulaire ci-dessus.</p>
+}
+else
+{
+    <table class="liste">
+        <thead><tr><th>Nom</th><th>Ville</th><th>Candidatures</th><th><span class="visuellement-cache">Actions</span></th></tr></thead>
+        <tbody>
+            @foreach (var e in _entreprises)
+            {
+                <tr @key="e.Id" data-test="entreprise">
+                    <td>
+                        @if (e.SiteWeb is not null)
+                        {
+                            <a href="@e.SiteWeb" target="_blank" rel="noopener noreferrer">@e.Nom</a>
+                        }
+                        else
+                        {
+                            @e.Nom
+                        }
+                    </td>
+                    <td>@(e.Ville ?? "—")</td>
+                    <td>@e.NombreCandidatures</td>
+                    <td>
+                        @if (_aConfirmer == e.Id)
+                        {
+                            <span class="confirmation">
+                                Supprimer aussi ses @e.NombreCandidatures candidature(s) ?
+                                <button class="lien-danger" @onclick="() => SupprimerAsync(e)" data-test="confirmer">Oui, supprimer</button>
+                                <button class="lien" @onclick="() => _aConfirmer = null">Annuler</button>
+                            </span>
+                        }
+                        else
+                        {
+                            <button class="lien-danger" @onclick="() => _aConfirmer = e.Id" data-test="supprimer">Supprimer</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<Entreprise>? _entreprises;
+    private EntrepriseFormulaire _formulaire = new();
+    private string? _erreur;
+    private bool _envoi;
+    private int? _aConfirmer;
+
+    protected override Task OnInitializedAsync() => ChargerAsync();
+
+    private async Task ChargerAsync()
+    {
+        try
+        {
+            _entreprises = await Client.ListerEntreprisesAsync();
+        }
+        catch (Exception ex) when (ex is StageTrackException or HttpRequestException)
+        {
+            _erreur = ex is StageTrackException ? ex.Message : "Impossible de joindre l'API StageTrack.";
+            _entreprises ??= [];
+        }
+    }
+
+    private async Task CreerAsync()
+    {
+        _envoi = true;
+        try
+        {
+            await Client.CreerEntrepriseAsync(_formulaire);
+            _formulaire = new();
+            _erreur = null;
+            await ChargerAsync();
+        }
+        catch (StageTrackException ex)
+        {
+            _erreur = ex.Message;
+        }
+        finally
+        {
+            _envoi = false;
+        }
+    }
+
+    private async Task SupprimerAsync(Entreprise e)
+    {
+        _aConfirmer = null;
+        try
+        {
+            await Client.SupprimerEntrepriseAsync(e.Id);
+            _erreur = null;
+        }
+        catch (StageTrackException ex)
+        {
+            _erreur = ex.Message;
+        }
+        await ChargerAsync();
+    }
+}

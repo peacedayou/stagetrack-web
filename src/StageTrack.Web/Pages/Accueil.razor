@@ -1,0 +1,157 @@
+@page "/"
+@inject IStageTrackClient Client
+
+<PageTitle>Tableau de bord · StageTrack</PageTitle>
+
+<h1>Mes candidatures de stage</h1>
+
+@if (_erreur is not null)
+{
+    <p class="erreur" role="alert">@_erreur</p>
+}
+
+@if (_stats is not null)
+{
+    <section class="indicateurs" aria-label="Statistiques">
+        <div class="indicateur"><span class="valeur" data-test="total">@_stats.Total</span><span>candidatures</span></div>
+        <div class="indicateur"><span class="valeur" data-test="entrevues">@(Nombre(StatutCandidature.Entrevue) + Nombre(StatutCandidature.Offre))</span><span>entrevues ou offres</span></div>
+        <div class="indicateur"><span class="valeur" data-test="taux">@_stats.TauxEntrevue.ToString("0.#") %</span><span>taux d'entrevue</span></div>
+        <div class="indicateur"><span class="valeur" data-test="a-envoyer">@Nombre(StatutCandidature.AEnvoyer)</span><span>à envoyer</span></div>
+    </section>
+}
+
+<section class="filtres" aria-label="Filtres">
+    <label>
+        Statut
+        <select @bind="FiltreStatut" @bind:after="ChargerAsync" data-test="filtre-statut">
+            <option value="">Tous</option>
+            @foreach (var s in Statuts.Tous)
+            {
+                <option value="@s">@Statuts.Libelle(s)</option>
+            }
+        </select>
+    </label>
+    <label>
+        Recherche
+        <input type="search" placeholder="Poste ou entreprise" @bind="Recherche" @bind:event="oninput"
+               @bind:after="ChargerAsync" data-test="recherche" />
+    </label>
+</section>
+
+@if (_candidatures is null)
+{
+    <p>Chargement…</p>
+}
+else if (_candidatures.Count == 0)
+{
+    <p class="vide" data-test="aucune">
+        Aucune candidature @(EstFiltre ? "ne correspond aux filtres" : "pour l'instant").
+        <a href="candidatures/nouvelle">Ajouter une candidature</a>
+    </p>
+}
+else
+{
+    <table class="liste">
+        <thead>
+            <tr><th>Poste</th><th>Entreprise</th><th>Statut</th><th>Envoyée le</th><th><span class="visuellement-cache">Actions</span></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var c in _candidatures)
+            {
+                <tr @key="c.Id" data-test="ligne">
+                    <td>
+                        @if (c.Lien is not null)
+                        {
+                            <a href="@c.Lien" target="_blank" rel="noopener noreferrer">@c.Poste</a>
+                        }
+                        else
+                        {
+                            @c.Poste
+                        }
+                    </td>
+                    <td>@c.Entreprise</td>
+                    <td>
+                        <PastilleStatut Statut="c.Statut" />
+                        <select aria-label="Changer le statut de @c.Poste" value="@c.Statut"
+                                @onchange="e => ChangerStatutAsync(c, e)" data-test="changer-statut">
+                            @foreach (var s in Statuts.Tous)
+                            {
+                                <option value="@s">@Statuts.Libelle(s)</option>
+                            }
+                        </select>
+                    </td>
+                    <td>@(c.DateEnvoi?.ToString("d MMM yyyy", Culture) ?? "—")</td>
+                    <td>
+                        <button class="lien-danger" @onclick="() => SupprimerAsync(c)" data-test="supprimer">
+                            Supprimer
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture = new("fr-CA");
+
+    private IReadOnlyList<Candidature>? _candidatures;
+    private Statistiques? _stats;
+    private string? _erreur;
+
+    private string FiltreStatut { get; set; } = "";
+    private string Recherche { get; set; } = "";
+
+    private bool EstFiltre => FiltreStatut != "" || !string.IsNullOrWhiteSpace(Recherche);
+
+    protected override Task OnInitializedAsync() => ChargerAsync();
+
+    private int Nombre(StatutCandidature s) => _stats?.ParStatut.GetValueOrDefault(s.ToString()) ?? 0;
+
+    private async Task ChargerAsync()
+    {
+        try
+        {
+            StatutCandidature? statut = Enum.TryParse<StatutCandidature>(FiltreStatut, out var s) ? s : null;
+            _candidatures = await Client.ListerCandidaturesAsync(statut, Recherche);
+            _stats = await Client.StatistiquesAsync();
+            _erreur = null;
+        }
+        catch (Exception ex) when (ex is StageTrackException or HttpRequestException)
+        {
+            _erreur = ex is StageTrackException ? ex.Message : "Impossible de joindre l'API StageTrack. Vérifie qu'elle est démarrée.";
+            _candidatures ??= [];
+        }
+    }
+
+    private async Task ChangerStatutAsync(Candidature c, ChangeEventArgs e)
+    {
+        if (!Enum.TryParse<StatutCandidature>(e.Value?.ToString(), out var statut) || statut == c.Statut) return;
+        string? erreur = null;
+        try
+        {
+            await Client.ChangerStatutAsync(c.Id, statut);
+        }
+        catch (StageTrackException ex)
+        {
+            erreur = ex.Message;
+        }
+        await ChargerAsync();
+        _erreur = erreur ?? _erreur;
+    }
+
+    private async Task SupprimerAsync(Candidature c)
+    {
+        string? erreur = null;
+        try
+        {
+            await Client.SupprimerCandidatureAsync(c.Id);
+        }
+        catch (StageTrackException ex)
+        {
+            erreur = ex.Message;
+        }
+        await ChargerAsync();
+        _erreur = erreur ?? _erreur;
+    }
+}

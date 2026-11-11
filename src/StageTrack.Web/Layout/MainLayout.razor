@@ -1,0 +1,26 @@
+@inherits LayoutComponentBase
+@inject IStageTrackClient Client
+
+<header class="entete">
+    <a class="marque" href="">StageTrack</a>
+    <nav aria-label="Navigation principale">
+        <NavLink href="" Match="NavLinkMatch.All">Tableau de bord</NavLink>
+        <NavLink href="candidatures/nouvelle">Nouvelle candidature</NavLink>
+        <NavLink href="entreprises">Entreprises</NavLink>
+    </nav>
+</header>
+
+@if (Client.EstDemo)
+{
+    <p class="bandeau-demo" role="status">
+        Mode démonstration : les données restent dans ton navigateur et disparaissent au rechargement.
+    </p>
+}
+
+<main>
+    @Body
+</main>
+
+<footer class="pied">
+    Interface Blazor WebAssembly de <a href="https://github.com/peacedayou/stagetrack-api">StageTrack API</a>.
+</footer>
