@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StageTrack</title>
+    <base href="/" />
+    <meta name="description" content="Suivi des candidatures de stage : interface Blazor WebAssembly de StageTrack API." />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" href="data:," />
+</head>
+<body>
+    <div id="app">
+        <p class="chargement">Chargement de StageTrack…</p>
+    </div>
+
+    <div id="blazor-error-ui" role="alert">
+        Une erreur inattendue s'est produite.
+        <a href="." class="reload">Recharger</a>
+        <span class="dismiss" aria-label="Fermer">✕</span>
+    </div>
+
+    <script>
+        // Retour depuis 404.html (GitHub Pages) : on restaure l'adresse demandée.
+        (function () {
+            var cible = sessionStorage.getItem('redirection');
+            if (cible) {
+                sessionStorage.removeItem('redirection');
+                history.replaceState(null, '', cible);
+            }
+        })();
+    </script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>

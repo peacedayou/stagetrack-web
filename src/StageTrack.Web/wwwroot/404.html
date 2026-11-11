@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+    <meta charset="utf-8" />
+    <title>StageTrack</title>
+    <script>
+        // GitHub Pages ne connaît pas les routes de l'application : on garde l'adresse
+        // demandée et on revient à la racine, qui la restaure (voir index.html).
+        try { sessionStorage.setItem('redirection', location.pathname + location.search + location.hash); } catch (e) { }
+        var segments = location.pathname.split('/').filter(Boolean);
+        var racine = location.hostname.endsWith('github.io') && segments.length ? '/' + segments[0] + '/' : '/';
+        location.replace(racine);
+    </script>
+</head>
+<body></body>
+</html>

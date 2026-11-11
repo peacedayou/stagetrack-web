@@ -1,0 +1,103 @@
+@page "/candidatures/nouvelle"
+@inject IStageTrackClient Client
+@inject NavigationManager Navigation
+
+<PageTitle>Nouvelle candidature · StageTrack</PageTitle>
+
+<h1>Nouvelle candidature</h1>
+
+@if (_erreur is not null)
+{
+    <p class="erreur" role="alert" data-test="erreur">@_erreur</p>
+}
+
+@if (_entreprises is null)
+{
+    <p>Chargement…</p>
+}
+else if (_entreprises.Count == 0)
+{
+    <p class="vide" data-test="sans-entreprise">
+        Ajoute d'abord une entreprise. <a href="entreprises">Aller aux entreprises</a>
+    </p>
+}
+else
+{
+    <EditForm Model="_formulaire" OnValidSubmit="CreerAsync" FormName="candidature" class="formulaire">
+        <DataAnnotationsValidator />
+        <label>
+            Poste
+            <InputText @bind-Value="_formulaire.Poste" data-test="poste" />
+            <ValidationMessage For="() => _formulaire.Poste" />
+        </label>
+        <label>
+            Entreprise
+            <InputSelect @bind-Value="_formulaire.EntrepriseId" data-test="entreprise">
+                <option value="0">Choisir…</option>
+                @foreach (var e in _entreprises)
+                {
+                    <option value="@e.Id">@e.Nom</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="() => _formulaire.EntrepriseId" />
+        </label>
+        <label>
+            Statut
+            <InputSelect @bind-Value="_formulaire.Statut">
+                @foreach (var s in Statuts.Tous)
+                {
+                    <option value="@s">@Statuts.Libelle(s)</option>
+                }
+            </InputSelect>
+        </label>
+        <label>
+            Lien de l'offre
+            <InputText @bind-Value="_formulaire.Lien" placeholder="https://" />
+            <ValidationMessage For="() => _formulaire.Lien" />
+        </label>
+        <label>
+            Notes
+            <InputTextArea @bind-Value="_formulaire.Notes" rows="4" />
+            <ValidationMessage For="() => _formulaire.Notes" />
+        </label>
+        <button type="submit" disabled="@_envoi" data-test="enregistrer">Enregistrer</button>
+    </EditForm>
+}
+
+@code {
+    private IReadOnlyList<Entreprise>? _entreprises;
+    private readonly CandidatureFormulaire _formulaire = new();
+    private string? _erreur;
+    private bool _envoi;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _entreprises = await Client.ListerEntreprisesAsync();
+        }
+        catch (Exception ex) when (ex is StageTrackException or HttpRequestException)
+        {
+            _erreur = ex is StageTrackException ? ex.Message : "Impossible de joindre l'API StageTrack.";
+            _entreprises = [];
+        }
+    }
+
+    private async Task CreerAsync()
+    {
+        _envoi = true;
+        try
+        {
+            await Client.CreerCandidatureAsync(_formulaire);
+            Navigation.NavigateTo("");
+        }
+        catch (StageTrackException ex)
+        {
+            _erreur = ex.Message;
+        }
+        finally
+        {
+            _envoi = false;
+        }
+    }
+}
